@@ -9,9 +9,9 @@ Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game
     <img width="100%" src=".github/splash.jpg">
   </p>
   <p align="right">
-    <sup>Photo by <a href="https://unsplash.com/@senadpalic">Senad Palic</a>
+    <sup><i>Photo by <a href="https://unsplash.com/@senadpalic">Senad Palic</a>
     on <a href="https://unsplash.com">Unsplash</a>, with title added.
-    Title set in <a href="https://fonts.google.com/specimen/Jacquard+24">Jacquard 24</a>.</sup>
+    Title set in <a href="https://fonts.google.com/specimen/Jacquard+24">Jacquard 24</a>.</i></sup>
   </p>
 </p>
 
