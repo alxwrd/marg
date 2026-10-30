@@ -1,10 +1,5 @@
-# MARG
-
-**M**akeCode **A**rcade for **RG**36S.
-
-Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game for an Anbernic RG36S running stock ArkOS (glibc 2.30).
-
 <p>
+<p align="center"><h1>MakeCode Arcade for RG36S</h1></p>
   <p align="center">
     <img width="100%" src=".github/splash.jpg">
   </p>
@@ -13,6 +8,7 @@ Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game
     on <a href="https://unsplash.com">Unsplash</a>, with title added.
     Title set in <a href="https://fonts.google.com/specimen/Jacquard+24">Jacquard 24</a>.</i></sup>
   </p>
+  <p align="center"><i>Turns a MakeCode Arcade <kbd>.png</kbd> export into a game for an Anbernic RG36S running stock ArkOS (glibc 2.30)</i></p>
 </p>
 
 ## Requirements
