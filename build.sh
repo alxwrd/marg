@@ -36,6 +36,7 @@ rm -rf "$GAMEDIR"
 mkdir -p "$GAMEDIR"
 cp "$WORK/game/Game" "$WORK/game/libpxt.so" "$WORK/game.pxt64" "$GAMEDIR/"
 cp "$PNG" "$GAMEDIR/cover.png"
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$GAMEDIR/"
 sed -e "s/@FOLDER@/$FOLDER/g" -e "s/@SCRIPT@/$SCRIPT/g" -e "s/@TITLE@/$TITLE/g" \
   "$ROOT/launcher/launcher.sh" > "$PORTS/$SCRIPT"
 chmod +x "$PORTS/$SCRIPT" "$GAMEDIR/Game"

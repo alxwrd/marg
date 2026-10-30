@@ -1,13 +1,6 @@
-# MakeCode Arcade to RG36S compiler
+# Project notes
 
-Turns a MakeCode Arcade `.png` export into a game for an Anbernic RG36S on stock ArkOS (glibc 2.30):
-
-```
-./build.sh fixtures/arcade-Chase-the-Pizza.png
-# writes out/ports/<Name>/ and out/ports/<Name>.sh, to copy to ports/ on the SD card
-```
-
-We made this because the [website compiler](https://www.makecode.games/compilers/desktop) targets glibc 2.38 and its current builds have a broken palette. Its source isn't available.
+Device details, test instructions and what we learnt. [README.md](README.md) has how to use the compiler.
 
 ## Status
 
@@ -165,6 +158,7 @@ USB can't work, because the device's USB port is host-only. Wi-Fi is the realist
 
 | Path | What it is |
 |---|---|
+| `README.md`, `LICENSE`, `THIRD_PARTY_NOTICES.md` | Usage, and the licence terms for this project and what it builds from |
 | `build.sh` | The command: PNG to `out/ports/` |
 | `builder/Dockerfile` | The one build image: current Debian, with Debian 10's glibc and SDL in `/sysroot` |
 | `builder/build-image.sh`, `extract-png.js`, `pxt.js`, `stub/` | PNG to `.pxt64` and C++ tree |
