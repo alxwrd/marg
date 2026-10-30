@@ -4,6 +4,15 @@
 
 Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game for an Anbernic RG36S running stock ArkOS (glibc 2.30).
 
+<p>
+  <p align="center">
+    <img width="100%" src=".github/splash.jpg">
+  </p>
+  <p align="right">
+    <sup>Photo from <a href="https://unsplash.com">Unsplash</a></sup>
+  </p>
+</p>
+
 ## Requirements
 
 - Docker
