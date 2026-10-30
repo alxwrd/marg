@@ -1,93 +1,30 @@
-# MakeCode Arcade to RG36S compiler: plan and handover
+# MakeCode Arcade to RG36S compiler
 
-## Goal
-
-Build our own command that turns a MakeCode Arcade `.png` export into a game that runs on an Anbernic RG36S running ArkOS:
+Turns a MakeCode Arcade `.png` export into a game for an Anbernic RG36S on stock ArkOS (glibc 2.30):
 
 ```
 ./build.sh fixtures/arcade-Chase-the-Pizza.png
-# produces a folder and launcher script to copy to ports/ on the SD card
+# writes out/ports/<Name>/ and out/ports/<Name>.sh, to copy to ports/ on the SD card
 ```
 
-The output must run on the device's stock firmware (glibc 2.30) with correct colours and working controls. It should not need the workarounds described below: a bundled glibc, a palette fix or a separately extracted `.pxt64`.
-
-## Why we're doing this
-
-Games can already be compiled at <https://www.makecode.games/compilers/desktop>, but that compiler's source isn't available and its output has two problems on this device:
-
-1. It targets glibc 2.38, and the device has 2.30.
-2. Current builds contain a broken 2-colour palette, so they panic on startup on any Linux system.
-
-We have working workarounds, so this project isn't urgent. A game built by the website does run on the device. See [Current working setup](#current-working-setup).
+We made this because the [website compiler](https://www.makecode.games/compilers/desktop) targets glibc 2.38 and its current builds have a broken palette. Its source isn't available.
 
 ## Status
 
-- **Steps 1 to 4 are done.** `./build.sh <png>` writes `out/ports/<Name>/` and `out/ports/<Name>.sh`. All of it is built from source in Docker, and it needs nothing newer than `GLIBC_2.17`.
+- **The build works.** All of the output is built from source in Docker, and it needs nothing newer than `GLIBC_2.17`.
 - **Tested in Docker:** both fixtures run on glibc 2.28 and 2.41 with no panic. Screenshots match the fixtures' colours (99.5% or more of pixels, `test/compare-colours.js`). The keyboard path works: A restarts after game over, Right moves the player, and Esc and SIGTERM exit with code 0. The launcher was dry-run with a fake PortMaster and a stub `Game`.
 - **Confirmed on the device (user report):** our output built on Debian 10 with GCC 8 works and looks good. Our `.pxt64` hasn't changed since, byte for byte.
 - **Not yet on the device:** `Game` and `libpxt.so` built with the current image (GCC 14 against the Debian 10 sysroot). They pass every Docker test, but they are new binaries, so test them on the device.
-
-## Plan
-
-Do steps 1 and 2 first. They're the riskiest, and they need only Docker. Don't write the runner until they work.
-
-### Step 1: build the game image
-
-In a Docker container, extract the project from a fixture PNG and compile it with the `pxt` CLI using the `vm` variant.
-
-- **Success:** we get a `.pxt64` that runs on the existing `Game` and `libpxt.so` with correct colours and without the palette fix. Compare screenshots against the fixture PNG.
-- **Biggest unknown:** whether `pxt build` can produce a `.pxt64` locally. It may need specific tool versions or a cloud service.
-- **Useful leads (not yet tried):**
-  - `microsoft/pxt-arcade` (MIT) has a `vm` variant in `pxtarget.json` and `libs/hw---vm`.
-  - The MakeCode code can already read projects out of PNGs, so reuse it instead of writing a decoder.
-
-### Step 2: build the runtime
-
-Compile `libpxt.so` from `microsoft/pxt-common-packages` (MIT, see `libs/core---vm`) in an old Linux container, targeting glibc 2.30 or older.
-
-- **Success:** the result needs no symbol newer than `GLIBC_2.30`, and it loads the image from step 1. Check with `objdump -T libpxt.so | grep GLIBC`.
-- **Risks:**
-  - The runtime may expect a particular build setup or compiler.
-  - Public source may not match the API the website's build exposes.
-  - `libs/screen---linux/screen.cpp` is a `/dev/fb0` version, while the website's build exposes `pxt_screen_get_pixels` for SDL. The right screen code is probably somewhere else, so find that first.
-
-### Step 3: write the runner
-
-Write a small SDL2 program in C to replace `Game`, covering video, input and audio. Build it with the same old toolchain. [Runner and runtime API](#runner-and-runtime-api) lists what it has to call.
-
-Requirements:
-- Use the device's SDL2 and honour `SDL_GAMECONTROLLERCONFIG`.
-- Scale 160x120 to fill the screen.
-- Keep the process name predictable, because `gptokeyb` uses it for Select+Start to quit.
-
-### Step 4: wrap it up
-
-Write `build.sh` so one PNG produces a folder plus a launcher. Base the launcher on `reference/launcher-example.sh`, and drop the workarounds that are no longer needed.
-
-### Step 5: test on the device
-
-Test Chase the Pizza first, because its correct behaviour is known. Then test a game with more colours.
-
-### Fallbacks
-
-- **Step 2 fails:** keep the website's `libpxt.so` and the bundled glibc. Step 1 still gives correct palettes, including custom ones.
-- **Step 1 fails:** keep the current setup. It works, but custom palettes need adding to `palette_fix.c` by hand.
 
 ## Testing without the device
 
 An Apple silicon Mac can run the ARM64 binaries directly in Docker, with a virtual display. This is far quicker than moving the SD card.
 
 ```
-test/run-game.sh <dir with Game and libpxt.so> <output dir> [--palette-fix] [Game args...]
-
-# Example, reproduces the panic:
-test/run-game.sh ~/Downloads/Chase_the_Pizza-arm64 out/unfixed
-
-# Example, runs with the palette fix and takes screenshots:
-test/run-game.sh ~/Downloads/Chase_the_Pizza-arm64 out/fixed --palette-fix
+test/run-game.sh out/ports/Chase_the_Pizza out/test [Game args...]
 ```
 
-It writes `run.log` and three screenshots, `a.png` at 3 seconds, `b.png` at 6 seconds and `c.png` at 9 seconds, and prints whether the game is still alive. Both example commands have been run and give those results.
+It writes `run.log` and three screenshots, `a.png` at 3 seconds, `b.png` at 6 seconds and `c.png` at 9 seconds, and prints whether the game is still alive.
 
 **Compare screenshots against the fixture PNGs.** The fixtures are the game's own MakeCode share images, showing the correct colours:
 - `fixtures/arcade-Test.png`: a mostly black "Testing game" screen, so it's a weak test of colours.
@@ -109,7 +46,7 @@ The container uses a software OpenGL renderer and a dummy audio driver. It has n
 - **The menu image:** the launcher adds the game to `ports/gamelist.xml` on its first run, so the image should appear after EmulationStation next restarts. Whether ES keeps that entry, and shows a 3:2-ish share image well, is untested.
 - **Settings:** they save to `settings-v0/` in the game's folder. Check that this works on exFAT.
 
-**Debugging panics with gdb:** add `--cap-add SYS_PTRACE --security-opt seccomp=unconfined` to `docker run`. `target_panic` and `_ZN3pxt10setPaletteEPNS_11BoxedBufferE` are exported from `libpxt.so`, so you can set pending breakpoints on them and use `bt`. The image in `test/Dockerfile` includes gdb.
+**Debugging panics with gdb:** add `--cap-add SYS_PTRACE --security-opt seccomp=unconfined` to `docker run`. You can set pending breakpoints on `target_panic` and use `bt`. The image in `test/Dockerfile` includes gdb.
 
 **Checking a `.pxt64` or `Game` for the bad palette:**
 - Bad: contains the bytes `06 00 00 00 00 00 00 ff ff ff`.
@@ -136,17 +73,9 @@ The container uses a software OpenGL renderer and a dummy audio driver. It has n
 
 Each of these caused a real failure.
 
-### Library loading
+### Website builds
 
-- **glibc:** the website's `Game` and `libpxt.so` need glibc 2.38. On the device this fails with ``version `GLIBC_2.38' not found``. We bundle glibc 2.41 from Debian 13's `libc6` arm64 package and start the game with `./libs/ld-linux-aarch64.so.1 --library-path ... ./Game`.
-- **Bundle the whole glibc family:** `libc`, `libm`, `libmvec`, `libdl`, `libpthread`, `librt`, `libutil`, `libresolv`, `libnss_files` and `libnss_dns`. Old system copies could clash with the new `libc`.
-- **Starting through the loader has side effects:**
-  - `/proc/self/exe` points at the loader. `Game` uses it to find its embedded image and appears to use it to find `libpxt.so`.
-  - Without a fix, `Game` exits with `no .pxt64 file argument and no embedded image`. So we pass the image as an argument and put a copy of `libpxt.so` in `libs/`.
-  - The process name becomes `ld-linux-aarch64.so.1`, so `gptokeyb` must be given that name.
-- **Graphics library path:** the bundled loader doesn't find libraries through the system cache, and `/usr/lib/aarch64-linux-gnu/libEGL.so.1` is the wrong driver. Using it gives `file /dev/mali0 is not of a compatible version (user 10.6, kernel 11.38)` and then `Invalid window`. `/usr/local/lib/aarch64-linux-gnu` must come first in the library path.
-
-A binary built properly against glibc 2.30 avoids all of this.
+Games from the website compiler need a bundled glibc, a palette fix and a separately extracted image. `Delivery.sh` on the card still runs this way, because its PNG isn't available. The instructions and `palette_fix.c` are in git history, in `PLAN.md` and `reference/` at commit `f0750cf`.
 
 ### The palette bug
 
@@ -157,10 +86,6 @@ A binary built properly against glibc 2.30 avoids all of this.
   - `games/ControllerTest` in <https://github.com/Kikketer/CreationStationArcade> (branch `single-native-arcade`) is an older website build. It has the default palette and runs with no fix, and its `libpxt.so` is a different size (267,880 bytes, against 333,568). Its age is unknown.
   - That repo is a launcher, not the compiler.
 - **Don't just skip the check:** the runtime then reads 48 bytes anyway, and colours 2 to 15 come from unrelated memory, including pointers. Colours are wrong, and could change between launches.
-- **Our workaround:** `reference/palette_fix.c`, loaded with `LD_PRELOAD`, replaces any wrong-sized palette with the default.
-  - It finds the real function through `dladdr` on its caller, because `libpxt.so` is opened privately and `RTLD_NEXT` can't see it (the game died without any panic message when it tried).
-  - It can't restore a project's custom palette.
-
 ### Arcade's default palette
 
 ```
@@ -168,7 +93,7 @@ A binary built properly against glibc 2.30 avoids all of this.
 #003fad #87f2ff #8e2ec4 #a4839f #5c406c #e5cdc4 #91463d #000000
 ```
 
-This was typed from memory. It looks right against the fixtures, but check it against the MakeCode source.
+This was typed from memory, and it matches the colours in our screenshots of the fixtures.
 
 ### Runner and runtime API
 
@@ -232,28 +157,9 @@ Passing `--sysroot` isn't enough, because gcc still looks in the host's folders.
 - exFAT has no execute permission to speak of, so the launcher runs `chmod` and it hasn't been a problem.
 - EmulationStation finds any `.sh` in `ports/`. `gamelist.xml` is optional metadata.
 
-### SSH: not worth pursuing right now
+### SSH
 
-- **USB doesn't work.** The device tree sets `dr_mode: host` on `usb@ff300000`, so `/sys/class/udc` stays empty, even after writing `peripheral` to `otg_mode`. Using USB as a device would need a patched DTB in the boot partition, and the board's wiring may still rule it out.
-- **Even then, no USB networking on a Mac.** The kernel has RNDIS but not ECM or NCM. It does have ACM, so a serial shell might be possible.
-- **Community scripts don't solve this.** `SSH-over-OTG-for-ArkOS` and `arkos-usb-network-mode` both need a device controller to already exist.
-- **Wi-Fi is the realistic route:** a USB dongle in the OTG port, then Enable Remote Services in the Options menu, then `ssh ark@<ip>`. The password is reported to be `ark`. The device has no built-in Wi-Fi as far as we know.
-- SSH itself starts fine on the device. Docker testing has mostly removed the need for it.
-- `ports/USB SSH.sh` and `ports/usb-ssh.log` from that experiment are still on the card and can be deleted.
-
-## Current working setup
-
-To add a game built by the website without our compiler:
-
-1. Download the `arm64` build from the website and extract it.
-2. Create `ports/<Name>-arm64/` on the card, and copy in `Game` and `libpxt.so`.
-3. Extract the image to `game.pxt64` in that folder.
-4. Create `libs/` in that folder. Copy in the glibc files listed above, `libpalette_fix.so` and a second copy of `libpxt.so`.
-5. Copy `reference/launcher-example.sh` to `ports/<Name>.sh` and change `GAMEDIR`.
-
-`Delivery.sh` and `Chase the Pizza.sh` on the card are working examples. Delivery's image is named `delivery.pxt64`, and it still writes `diag.txt` on each launch.
-
-**To rebuild `libpalette_fix.so`:** compile `reference/palette_fix.c` for ARM64 with `gcc -shared -fPIC -O2`, on any system with glibc 2.41 or older (it uses `dlsym` from 2.34, so 2.34 is the minimum, and it runs against the bundled glibc). The working binary is in `libs/` of each game on the card.
+USB can't work, because the device's USB port is host-only. Wi-Fi is the realistic route: a USB dongle, then Enable Remote Services, then `ssh ark@<ip>` (password reported to be `ark`). Docker testing has mostly removed the need for it.
 
 ## Files in this repo
 
@@ -265,12 +171,8 @@ To add a game built by the website without our compiler:
 | `builder/build-runtime.sh`, `runner.c` | Runtime build with its upstream patches, and `Game` |
 | `launcher/launcher.sh` | Template for the launcher |
 | `test/Dockerfile`, `test/Dockerfile.old-glibc`, `test/run-game.sh`, `test/compare-colours.js` | Run a game, take screenshots with no device, and compare them with a fixture |
-| `docs/screenshots/` | Screenshots of our builds, from `test/run-game.sh` |
-| `reference/palette_fix.c` | Source of the palette workaround |
-| `reference/launcher-example.sh` | Launcher for a website build. Rewritten from the card's version when the card was out, so compare it with `ports/Chase the Pizza.sh` if something behaves differently |
 | `fixtures/*.png` | MakeCode share images: a source for the compiler and a colour reference |
 
-Website builds used for comparison are in `~/Downloads` (`Test-arm64`, `Chase_the_Pizza-arm64`), and aren't in the repo. Delivery's PNG isn't available, only its build on the card.
 
 ## Links
 

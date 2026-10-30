@@ -7,8 +7,10 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 [ -f "$1" ] || { echo "usage: $0 <game.png>"; exit 1; }
 PNG="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 
+echo "building the builder"
 docker build -q --platform linux/arm64 -t makecode-build "$ROOT/builder" > /dev/null
 
+echo "preparing out directory"
 WORK="$ROOT/out/.build/$(basename "$PNG" .png)"
 rm -rf "$WORK"
 mkdir -p "$WORK/game"
@@ -27,6 +29,7 @@ TITLE="$(LC_ALL=C tr -cd 'A-Za-z0-9 _-' < "$WORK/name" | sed 's/^ *//; s/ *$//')
 FOLDER="$(echo "$TITLE" | tr ' ' '_')"
 SCRIPT="$TITLE.sh"
 
+echo "saving game and launcher"
 PORTS="$ROOT/out/ports"
 GAMEDIR="$PORTS/$FOLDER"
 rm -rf "$GAMEDIR"
@@ -45,6 +48,7 @@ if [ "$(printf '%s\nGLIBC_2.30\n' "$NEWEST" | sort -V | tail -1)" != GLIBC_2.30 
   echo "error: the device has only GLIBC_2.30"
   exit 1
 fi
+rm -rf "$ROOT/out/.build"
 echo "done: copy these to ports/ on the SD card:"
 echo "  $GAMEDIR"
 echo "  $PORTS/$SCRIPT"

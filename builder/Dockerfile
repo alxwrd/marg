@@ -8,7 +8,7 @@ RUN printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive
     && apt-get install -y --no-install-recommends libc6-dev linux-libc-dev libsdl2-dev
 
 FROM node:24-trixie-slim
-RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make binutils python3 ca-certificates git
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ make binutils ca-certificates
 COPY --from=old-libs /usr/include /sysroot/usr/include
 COPY --from=old-libs /usr/lib/aarch64-linux-gnu /sysroot/usr/lib/aarch64-linux-gnu
 COPY --from=old-libs /lib/aarch64-linux-gnu /sysroot/lib/aarch64-linux-gnu
