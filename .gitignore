@@ -1,0 +1,8 @@
+.DS_Store
+._*
+out/
+node_modules/
+*.pxt64
+*.so
+Game
+*.tar.gz

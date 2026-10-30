@@ -1,0 +1,4 @@
+#!/bin/sh
+# pxt calls this where it would cross-compile the runtime for every platform.
+# A VM image has no native code in it, and native/Dockerfile builds the runtime.
+mkdir -p bld && : > bld/all.tgz.b64
