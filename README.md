@@ -9,7 +9,8 @@ Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game
     <img width="100%" src=".github/splash.jpg">
   </p>
   <p align="right">
-    <sup>Photo from <a href="https://unsplash.com">Unsplash</a></sup>
+    <sup>Photo by <a href="https://unsplash.com/@senadpalic">Senad Palic</a>
+    on <a href="https://unsplash.com">Unsplash</a></sup>
   </p>
 </p>
 
