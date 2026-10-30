@@ -4,41 +4,35 @@
 
 Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game for an Anbernic RG36S running stock ArkOS (glibc 2.30).
 
-## Why
-
-The [website compiler](https://www.makecode.games/compilers/desktop) can build Arcade games for Linux, but on this device its output needs a newer glibc than the device has, and its current builds panic on startup because of a broken colour palette. This project builds the same open-source MakeCode code locally, so neither workaround is needed.
-
 ## Requirements
 
 - Docker
-- An Apple silicon Mac or other ARM64 host. Other hosts would need Docker's ARM64 emulation, which hasn't been tested.
+- An ARM64 host (or via Docker's ARM64 emulation, which hasn't been tested)
 - Network access for the first build, and for projects with GitHub extensions
 
 ## Usage
 
 ```
-./build.sh fixtures/arcade-Chase-the-Pizza.png
+./build.sh fixtures/arcade-Your-Game.png
 ```
 
 This writes a folder and a launcher:
 
 ```
-out/ports/Chase_the_Pizza/
-out/ports/Chase the Pizza.sh
+out/ports/Your_Game/
+out/ports/Your Game.sh
 ```
 
 Copy both to `ports/` on the SD card. The game appears in the Ports menu after EmulationStation restarts. Its image appears after the first launch and the next restart.
 
-On macOS, delete any `._*` files that the copy creates in `ports/`.
-
 ## Controls
 
-| Device | Game |
-|---|---|
-| D-pad or left stick | Move |
-| A, B | A, B |
-| Start | MakeCode menu |
-| Select + Start | Quit |
+| Device              | Game          |
+| ------------------- | ------------- |
+| D-pad or left stick | Move          |
+| A, B                | A, B          |
+| Start               | MakeCode menu |
+| Select + Start      | Quit          |
 
 All controllers act as player 1, so two-player games can't be played yet.
 
@@ -67,5 +61,3 @@ test/run-game.sh out/ports/Chase_the_Pizza out/test
 ## Licence
 
 [MIT](LICENSE), for the code in this project. The output includes MakeCode code under its own MIT licence, so keep `THIRD_PARTY_NOTICES.md` with any game you share. It is copied to each game's folder.
-
-The PNGs in `fixtures/` are game projects and aren't covered by this licence. Check the terms of any extensions a game uses before you share it, because they are compiled into the game. Chase the Pizza uses [kiki-lee/chase-the-pizza](https://github.com/kiki-lee/chase-the-pizza), which has no stated licence.
