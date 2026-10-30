@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds libpxt.so from the C++ tree that pxt generated, and the runner. Runs in native/Dockerfile.
+# Builds libpxt.so from the C++ tree that pxt generated, and the runner. Runs in builder/Dockerfile.
 # Usage: build-runtime.sh <tree> <output dir>
 # Writes libpxt.so and the Game runner to the output directory.
 set -e
@@ -15,7 +15,13 @@ sed -i 's/(const uint32_t \*)((uint32_t)vmImg->dataEnd & ~0xf)/(const uint32_t *
 sed -i 's/aspxt::RefCollection(/asRefCollection(/' pxtapp/pointers.cpp
 sed -i 's/if (!canBeTagged(v >> 1))/if ((((int)(v >> 1)) << 1) >> 1 != (int)(v >> 1))/' pxtapp/core---vm/verify.cpp
 
-make -j"$(nproc)" CROSS_TRIPLE=linux build-one > make.log 2>&1 || { tail -30 make.log; exit 1; }
+# The sysroot has the old glibc, so nothing can link to a newer one. gcc still adds the
+# host's library folder to the search, so the sysroot's folders must come first:
+# -B for the startup files like Scrt1.o, and -L and -rpath-link for the libraries
+CC="gcc --sysroot=/sysroot"
+LIBDIRS="/sysroot/usr/lib/aarch64-linux-gnu:/sysroot/lib/aarch64-linux-gnu"
+LD="$CC -B/sysroot/usr/lib/aarch64-linux-gnu/ -L/sysroot/usr/lib/aarch64-linux-gnu -L/sysroot/lib/aarch64-linux-gnu -Wl,-rpath-link=$LIBDIRS"
+make -j"$(nproc)" CROSS_TRIPLE=linux CC="$CC" LD="$LD" build-one > make.log 2>&1 || { tail -30 make.log; exit 1; }
 cp bld/libpxt.so "$2/libpxt.so"
-gcc -O2 -Wall -std=gnu99 /native/runner.c -o "$2/Game" $(sdl2-config --cflags) -lSDL2
+$LD -O2 -Wall -std=gnu99 /builder/runner.c -o "$2/Game" -I/sysroot/usr/include/SDL2 -D_REENTRANT -lSDL2
 strip "$2/Game"

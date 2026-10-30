@@ -1,16 +1,16 @@
 #!/bin/bash
-# Compiles a .png export. Runs in compiler/Dockerfile.
+# Compiles a .png export. Runs in builder/Dockerfile.
 # Usage: build-image.sh <png> <output dir>
 # Writes game.pxt64, name (the project's name) and tree (C++ source for the runtime).
 set -e
 PROJECT=/tmp/project
-node /compiler/extract-png.js "$1" "$PROJECT" > /tmp/meta.json
+node /builder/extract-png.js "$1" "$PROJECT" > /tmp/meta.json
 node -p 'JSON.parse(require("fs").readFileSync("/tmp/meta.json", "utf8")).name' > "$2/name"
 
 cd "$PROJECT"
-export PXT_FORCE_LOCAL=1 PXT_NODOCKER=force PATH=/compiler/stub:$PATH
-node /compiler/pxt.js install --hw vm > /tmp/pxt.log 2>&1 || { cat /tmp/pxt.log; exit 1; }
-node /compiler/pxt.js build --hw vm > /tmp/pxt.log 2>&1 || { cat /tmp/pxt.log; exit 1; }
+export PXT_FORCE_LOCAL=1 PXT_NODOCKER=force PATH=/builder/stub:$PATH
+node /builder/pxt.js install --hw vm > /tmp/pxt.log 2>&1 || { cat /tmp/pxt.log; exit 1; }
+node /builder/pxt.js build --hw vm > /tmp/pxt.log 2>&1 || { cat /tmp/pxt.log; exit 1; }
 [ -f built/binary.pxt64 ] || { cat /tmp/pxt.log; echo "pxt made no image"; exit 1; }
 
 # The image's size is at offset 0x48. A source map follows the image, and the

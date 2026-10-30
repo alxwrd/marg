@@ -24,8 +24,8 @@ We have working workarounds, so this project isn't urgent. A game built by the w
 
 - **Steps 1 to 4 are done.** `./build.sh <png>` writes `out/ports/<Name>/` and `out/ports/<Name>.sh`. All of it is built from source in Docker, and it needs nothing newer than `GLIBC_2.17`.
 - **Tested in Docker:** both fixtures run on glibc 2.28 and 2.41 with no panic. Screenshots match the fixtures' colours (99.5% or more of pixels, `test/compare-colours.js`). The keyboard path works: A restarts after game over, Right moves the player, and Esc and SIGTERM exit with code 0. The launcher was dry-run with a fake PortMaster and a stub `Game`.
-- **Next is step 5, on the device.** Nothing we built has run there yet. See [What Docker can't prove](#what-docker-cant-prove).
-- **Confirmed on the device:** only the older website build of Chase the Pizza, using the workarounds.
+- **Confirmed on the device (user report):** our output built on Debian 10 with GCC 8 works and looks good. Our `.pxt64` hasn't changed since, byte for byte.
+- **Not yet on the device:** `Game` and `libpxt.so` built with the current image (GCC 14 against the Debian 10 sysroot). They pass every Docker test, but they are new binaries, so test them on the device.
 
 ## Plan
 
@@ -93,9 +93,9 @@ It writes `run.log` and three screenshots, `a.png` at 3 seconds, `b.png` at 6 se
 - `fixtures/arcade-Test.png`: a mostly black "Testing game" screen, so it's a weak test of colours.
 - `fixtures/arcade-Chase-the-Pizza.png`: teal background, pink score boxes, yellow "GAME OVER". The game reaches this screen by itself within 6 seconds with no input. The screenshot can differ slightly from the PNG in things like the pizza's position and the "A" prompt.
 
-`OLD_GLIBC=1` runs on glibc 2.28 and SDL 2.0.9, which are older than the device. `KEYS="z Right"` presses keys through Xvfb after the first screenshot.
+`OLD_GLIBC=1` runs on glibc 2.28 and SDL 2.0.9, which are older than the device. Under Xvfb, SDL 2.0.9 fails to start about 1 run in 6 (`No available video device`) and ignores key presses. Binaries from the older Debian 10 build do the same, so this comes from that test image. Run again if it fails, and test input without `OLD_GLIBC`. `KEYS="z Right"` presses keys through Xvfb after the first screenshot.
 
-`test/compare-colours.js <fixture.png> <screenshot.png>` (run it in the `makecode-compile` image, which has `pngjs`) reports how many of the 160x120 pixels match.
+`test/compare-colours.js <fixture.png> <screenshot.png>` (run it in the `makecode-build` image, which has `pngjs`) reports how many of the 160x120 pixels match.
 
 #### What Docker can't prove
 
@@ -195,12 +195,22 @@ This was typed from memory. It looks right against the fixtures, but check it ag
 
 - **Pin the versions together.** `pxt-core` newer than the target expects emits `pxtrt::mapSetByStringOnly`, which the bundled libraries lack (`TS9200: missing function`). We use arcade 4.1.27, core 13.1.24 and common-packages 14.1.7, which are the versions the fixtures were saved with. A PNG from a much newer editor may need these raised.
 - **Run the CLI against the target:** `mainCli("/pxt/node_modules/pxt-arcade")`, otherwise it uses `pxt-core` itself as the target and can't find `device`.
-- **`pxt build` calls `make` for all platforms through `crossbuild`.** The image doesn't need that result, so `compiler/stub/make` replaces it and `native/build-runtime.sh` builds the generated tree in `built/dockercross` separately.
+- **`pxt build` calls `make` for all platforms through `crossbuild`.** The image doesn't need that result, so `builder/stub/make` replaces it and `builder/build-runtime.sh` builds the generated tree in `built/dockercross` separately.
 - **Strip the source map.** `binary.pxt64` has a source map after the image, and the runtime rejects the file with error 1001 unless the length is a multiple of 8. Website images have no source map. The image size is a 32-bit value at offset `0x48`.
 - **The right screen code** is `libs/screen---ext` and `libs/mixer---ext`, which `hw---vm` selects, not `screen---linux`. `pxt-arcade/libs/hw---vm/sdlmain.cpp` is an upstream SDL runner.
 - **The website's runtime isn't the public source.** Its `Game` also needs `pxt_screen_get_size`, which public source lacks, so that `Game` can't load our `libpxt.so`. Our own runner doesn't need it.
-- **Upstream bugs patched in `native/build-runtime.sh`:** a truncated pointer in `find_src_map`, `aspxt::RefCollection` from the generator, and validation error 1063 on 64-bit hosts (see the comment there).
+- **Upstream bugs patched in `builder/build-runtime.sh`:** a truncated pointer in `find_src_map`, `aspxt::RefCollection` from the generator, and validation error 1063 on 64-bit hosts (see the comment there).
 - **Palette bug confirmed as the website's:** the website image panics with 911 on our runtime, and our image doesn't.
+
+### Building against an old glibc on a new OS
+
+Passing `--sysroot` isn't enough, because gcc still looks in the host's folders. Use `gcc -Wl,-t` to see what is linked. Each of these got through:
+
+- **Startup files:** `Scrt1.o`, `crti.o` and `crtn.o` came from the host's glibc 2.41. `-B<sysroot lib dir>/` puts the sysroot first.
+- **Absolute symlinks:** `libpthread.so` in the sysroot pointed at `/lib/...`, which is the host's empty stub (`undefined reference to pthread_create`). The Dockerfile rewrites them to stay in the sysroot.
+- **Libraries that libraries need:** `ld` found the host's `libc.so.6` for the old `libpthread` (`undefined reference to ...@GLIBC_PRIVATE`). `-rpath-link` fixes this.
+
+`crtbeginS.o`, `crtendS.o` and `libgcc` still come from GCC 14. That is correct, and they add no glibc symbols. `build.sh` now fails if a binary needs anything newer than `GLIBC_2.30`.
 
 ### Our runner
 
@@ -250,8 +260,9 @@ To add a game built by the website without our compiler:
 | Path | What it is |
 |---|---|
 | `build.sh` | The command: PNG to `out/ports/` |
-| `compiler/` | Docker image and scripts: PNG to `.pxt64` and C++ tree |
-| `native/` | Debian 10 image, runtime build with its upstream patches, and `runner.c` (`Game`) |
+| `builder/Dockerfile` | The one build image: current Debian, with Debian 10's glibc and SDL in `/sysroot` |
+| `builder/build-image.sh`, `extract-png.js`, `pxt.js`, `stub/` | PNG to `.pxt64` and C++ tree |
+| `builder/build-runtime.sh`, `runner.c` | Runtime build with its upstream patches, and `Game` |
 | `launcher/launcher.sh` | Template for the launcher |
 | `test/Dockerfile`, `test/Dockerfile.old-glibc`, `test/run-game.sh`, `test/compare-colours.js` | Run a game, take screenshots with no device, and compare them with a fixture |
 | `docs/screenshots/` | Screenshots of our builds, from `test/run-game.sh` |
