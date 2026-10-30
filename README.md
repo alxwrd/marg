@@ -10,7 +10,8 @@ Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game
   </p>
   <p align="right">
     <sup>Photo by <a href="https://unsplash.com/@senadpalic">Senad Palic</a>
-    on <a href="https://unsplash.com">Unsplash</a></sup>
+    on <a href="https://unsplash.com">Unsplash</a>, with title added.
+    Title set in <a href="https://fonts.google.com/specimen/Jacquard+24">Jacquard 24</a>.</sup>
   </p>
 </p>
 
