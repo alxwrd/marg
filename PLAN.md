@@ -68,7 +68,7 @@ Each of these caused a real failure.
 
 ### Website builds
 
-Games from the website compiler need a bundled glibc, a palette fix and a separately extracted image. `Delivery.sh` on the card still runs this way, because its PNG isn't available. The instructions and `palette_fix.c` are in git history, in `PLAN.md` and `reference/` at commit `f0750cf`.
+Games from the website compiler need a bundled glibc, a palette fix and a separately extracted image. `Delivery.sh` on the card still runs this way, because its PNG isn't available. The instructions and `palette_fix.c` are in git history, in `PLAN.md` and `reference/` at commit `771848c`.
 
 ### The palette bug
 

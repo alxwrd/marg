@@ -1,5 +1,6 @@
 <p>
-<p align="center"><h1>MakeCode Arcade for RG36S</h1></p>
+<h1 align="center">marg</h1>
+<p align="center"><i><b>M</b>akeCode <b>A</b>rcade for <b>RG</b>36S</i></p>
   <p align="center">
     <img width="100%" src=".github/splash.jpg">
   </p>
