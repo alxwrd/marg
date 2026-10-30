@@ -5,3 +5,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends make python3 ca
 WORKDIR /pxt
 RUN npm init -y > /dev/null && npm install --no-audit --no-fund --omit=optional \
     pxt-arcade@4.1.27 pxt-core@13.1.24 pxt-common-packages@14.1.7 pngjs@7.0.0 lzma@2.3.2
+COPY . /compiler/
+ENV NODE_PATH=/pxt/node_modules

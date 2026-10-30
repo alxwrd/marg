@@ -22,10 +22,10 @@ We have working workarounds, so this project isn't urgent. A game built by the w
 
 ## Status
 
-- **Step 1 works.** `pxt build --hw vm` makes a `.pxt64` in Docker with no cloud service. It contains the default palette, and it runs on the website's `Game` and `libpxt.so` with correct colours and no palette fix.
-- **Step 2 works.** `libpxt.so` builds from source on Debian 10 and needs nothing newer than `GLIBC_2.17`. It loads and runs both images, tested with the headless `pxt-vm-cli-linux` from the same build.
-- **Confirmed on the device:** Chase the Pizza, built by the website and using the workarounds, was reported by the user as running great.
-- **Not separately confirmed on the device:** Select+Start quitting, and whether Delivery's colours match the MakeCode simulator.
+- **Steps 1 to 4 are done.** `./build.sh <png>` writes `out/ports/<Name>/` and `out/ports/<Name>.sh`. All of it is built from source in Docker, and it needs nothing newer than `GLIBC_2.17`.
+- **Tested in Docker:** both fixtures run on glibc 2.28 and 2.41 with no panic. Screenshots match the fixtures' colours (99.5% or more of pixels, `test/compare-colours.js`). The keyboard path works: A restarts after game over, Right moves the player, and Esc and SIGTERM exit with code 0. The launcher was dry-run with a fake PortMaster and a stub `Game`.
+- **Next is step 5, on the device.** Nothing we built has run there yet. See [What Docker can't prove](#what-docker-cant-prove).
+- **Confirmed on the device:** only the older website build of Chase the Pizza, using the workarounds.
 
 ## Plan
 
@@ -87,13 +87,27 @@ test/run-game.sh ~/Downloads/Chase_the_Pizza-arm64 out/unfixed
 test/run-game.sh ~/Downloads/Chase_the_Pizza-arm64 out/fixed --palette-fix
 ```
 
-It writes `run.log` and two screenshots, `a.png` at 3 seconds and `b.png` at 6 seconds, and prints whether the game is still alive. Both example commands have been run and give those results.
+It writes `run.log` and three screenshots, `a.png` at 3 seconds, `b.png` at 6 seconds and `c.png` at 9 seconds, and prints whether the game is still alive. Both example commands have been run and give those results.
 
 **Compare screenshots against the fixture PNGs.** The fixtures are the game's own MakeCode share images, showing the correct colours:
 - `fixtures/arcade-Test.png`: a mostly black "Testing game" screen, so it's a weak test of colours.
 - `fixtures/arcade-Chase-the-Pizza.png`: teal background, pink score boxes, yellow "GAME OVER". The game reaches this screen by itself within 6 seconds with no input. The screenshot can differ slightly from the PNG in things like the pizza's position and the "A" prompt.
 
-**What Docker can't prove:** controls, real audio, and anything tied to the device's Mali GPU or screen. The container uses a software OpenGL renderer and a dummy audio driver, and sends no input. Older device-specific failures didn't show up here, so always finish with a device test.
+`OLD_GLIBC=1` runs on glibc 2.28 and SDL 2.0.9, which are older than the device. `KEYS="z Right"` presses keys through Xvfb after the first screenshot.
+
+`test/compare-colours.js <fixture.png> <screenshot.png>` (run it in the `makecode-compile` image, which has `pngjs`) reports how many of the 160x120 pixels match.
+
+#### What Docker can't prove
+
+The container uses a software OpenGL renderer and a dummy audio driver. It has no controller and no `gptokeyb`. Older device-specific failures didn't show up here, so always finish with a device test. Check these on the device:
+
+- **Controls:** `SDL_GAMECONTROLLERCONFIG` from PortMaster, d-pad, stick, and whether A and B are the right way round (SDL's labels, not tested). All controllers act as player 1, so two-player games can't be played yet. Start opens the MakeCode menu.
+- **Audio:** the runner opens 44100 Hz, 1 channel, 1024 samples as before, but no sound has been heard from this runtime.
+- **Mali rendering:** that SDL picks `opengles2`, that `/usr/local/lib/aarch64-linux-gnu` in `LD_LIBRARY_PATH` finds the right driver, and that vsync works.
+- **Screen scaling:** the texture is stretched to the whole display with nearest-neighbour scaling, and `SDL_WINDOW_FULLSCREEN_DESKTOP` is untested on KMS/DRM.
+- **Select+Start:** `gptokeyb "Game"` should find the process by name. It has never been confirmed on the device, for any build.
+- **The menu image:** the launcher adds the game to `ports/gamelist.xml` on its first run, so the image should appear after EmulationStation next restarts. Whether ES keeps that entry, and shows a 3:2-ish share image well, is untested.
+- **Settings:** they save to `settings-v0/` in the game's folder. Check that this works on exFAT.
 
 **Debugging panics with gdb:** add `--cap-add SYS_PTRACE --security-opt seccomp=unconfined` to `docker run`. `target_panic` and `_ZN3pxt10setPaletteEPNS_11BoxedBufferE` are exported from `libpxt.so`, so you can set pending breakpoints on them and use `bt`. The image in `test/Dockerfile` includes gdb.
 
@@ -188,6 +202,14 @@ This was typed from memory. It looks right against the fixtures, but check it ag
 - **Upstream bugs patched in `native/build-runtime.sh`:** a truncated pointer in `find_src_map`, `aspxt::RefCollection` from the generator, and validation error 1063 on 64-bit hosts (see the comment there).
 - **Palette bug confirmed as the website's:** the website image panics with 911 on our runtime, and our image doesn't.
 
+### Our runner
+
+- **`pxt_get_panic_code` returning -1 means restart.** The runner must call `pxt_vm_start` again. Upstream's `sdlmain.cpp` doesn't, and the screen freezes after A on the game over screen.
+- **Settings need a writable folder.** The runtime aborts with `FAILURE: can't write file` otherwise, so the runner falls back to `/tmp` if the folder isn't writable.
+- **Xvfb needs time to start,** and SDL fails with `No available video device` if it isn't ready. `test/run-game.sh` waits for it.
+- **A share image can't be compared exactly,** because the project is hidden in the low bits of its pixels.
+- **Compiling a project needs network** if it has GitHub extensions, like Chase the Pizza.
+
 ### Logging on the device
 
 - Output through `tee` wasn't reliable. `log.txt` sometimes came back empty, or kept the previous run's contents after a forced power-off.
@@ -227,7 +249,12 @@ To add a game built by the website without our compiler:
 
 | Path | What it is |
 |---|---|
-| `test/Dockerfile`, `test/run-game.sh` | Run a game and take screenshots with no device |
+| `build.sh` | The command: PNG to `out/ports/` |
+| `compiler/` | Docker image and scripts: PNG to `.pxt64` and C++ tree |
+| `native/` | Debian 10 image, runtime build with its upstream patches, and `runner.c` (`Game`) |
+| `launcher/launcher.sh` | Template for the launcher |
+| `test/Dockerfile`, `test/Dockerfile.old-glibc`, `test/run-game.sh`, `test/compare-colours.js` | Run a game, take screenshots with no device, and compare them with a fixture |
+| `docs/screenshots/` | Screenshots of our builds, from `test/run-game.sh` |
 | `reference/palette_fix.c` | Source of the palette workaround |
 | `reference/launcher-example.sh` | Launcher for a website build. Rewritten from the card's version when the card was out, so compare it with `ports/Chase the Pizza.sh` if something behaves differently |
 | `fixtures/*.png` | MakeCode share images: a source for the compiler and a colour reference |

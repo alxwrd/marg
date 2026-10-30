@@ -1,6 +1,7 @@
 #!/bin/bash
-# Builds libpxt.so from the C++ tree that pxt generated. Runs in native/Dockerfile.
+# Builds libpxt.so from the C++ tree that pxt generated, and the runner. Runs in native/Dockerfile.
 # Usage: build-runtime.sh <tree> <output dir>
+# Writes libpxt.so and the Game runner to the output directory.
 set -e
 cd "$1"
 
@@ -16,3 +17,5 @@ sed -i 's/if (!canBeTagged(v >> 1))/if ((((int)(v >> 1)) << 1) >> 1 != (int)(v >
 
 make -j"$(nproc)" CROSS_TRIPLE=linux build-one > make.log 2>&1 || { tail -30 make.log; exit 1; }
 cp bld/libpxt.so "$2/libpxt.so"
+gcc -O2 -Wall -std=gnu99 /native/runner.c -o "$2/Game" $(sdl2-config --cflags) -lSDL2
+strip "$2/Game"
