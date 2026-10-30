@@ -1,8 +1,8 @@
-# MakeCode Arcade compiler for the RG36S
+# MARG
+
+**M**akeCode **A**rcade for **RG**36S.
 
 Turns a [MakeCode Arcade](https://arcade.makecode.com) `.png` export into a game for an Anbernic RG36S running stock ArkOS (glibc 2.30).
-
-This is an independent project. It isn't made or endorsed by Microsoft.
 
 ## Why
 
